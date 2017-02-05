@@ -1,0 +1,40 @@
+{
+	"registers": {
+		"IOADDR": {
+			"size": "4",
+			"offset": "0x0"
+		},
+		"IODATA": {
+			"size": "4",
+			"offset": "0x4"
+		},
+		"FLSWCTL": {
+			"size": "4",
+			"offset": "0x12048",
+			"ready_mask": "0x40000000",
+			"bitmasks": {
+				"DONE_MASK": "0x40000000"
+			}
+		},
+		"FLSWDATA": {
+			"size": "4",
+			"offset": "0x1204C"
+		},
+		"FLSWCNT": {
+			"size": "4",
+			"offset": "0x12050"
+		},
+		"SWSM": {
+			"size": "4",
+			"offset": "0x5B50"
+		},
+		"FWSM": {
+			"size": "4",
+			"offset": "0x5B54"
+		},
+		"SW_FW_SYNC": {
+			"size": "4",
+			"offset": "0x5B5C"
+		}
+	}
+}

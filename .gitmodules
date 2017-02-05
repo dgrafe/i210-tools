@@ -1,0 +1,3 @@
+[submodule "libi210/libregmap"]
+	path = libi210/libregmap
+	url = https://github.com/dgrafe/libregmap.git
