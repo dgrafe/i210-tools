@@ -1,11 +1,11 @@
 /* This file is part of i2c-tools.
  *
- * libregmap is free software: you can redistribute it and/or modify
+ * i210-tools is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * libregmap is distributed in the hope that it will be useful,
+ * i210-tools is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
@@ -27,6 +27,10 @@ i210::i210(const regmap::pci::BDF& bdf, const std::string& defFile, eRegInterfac
 
 FlashDump i210::dumpFlash() {
 	return m_eInterface == INTERFACE_MEM ? m_oFlashMem.dump() : m_oFlashIO.dump();
+}
+
+std::ostream& operator<< (std::ostream& stream, i210& instance) {
+	return instance.m_eInterface == INTERFACE_MEM ? instance.m_oFlashMem << stream : instance.m_oFlashIO << stream;
 }
 
 }

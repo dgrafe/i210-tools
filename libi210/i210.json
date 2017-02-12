@@ -35,6 +35,30 @@
 		"SW_FW_SYNC": {
 			"size": "4",
 			"offset": "0x5B5C"
+		},
+		"EEC": {
+			"size": "4",
+			"offset": "0x12010",
+			"bitmasks": {
+				"FLASH_IN_USE": "0x40",
+				"FLASH_PRESENT": "0x100",
+				"FLASH_DETECTED": "0x80000"
+			}
+		},
+		"FLA": {
+			"size": "4",
+			"offset": "0x1201C",
+			"bitmasks": {
+				"SECURE_MODE": "0x40"
+			}
+		},
+		"FLASHMODE": {
+			"size": "4",
+			"offset": "0x12000",
+			"bitmasks": {
+				"SPEED_31MHz": "0x8",
+				"SPEED_62MHz": "0x10"
+			}
 		}
 	}
 }
