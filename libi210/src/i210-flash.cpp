@@ -21,6 +21,13 @@ namespace libi210 {
 template <class T>
 std::ostream& I210Common<T>::operator<< (std::ostream& stream) {
 
+
+/*	stream << "Firmware:" << std::endl;
+	stream << "test: " << std::hex << getFirmwareRevision() << std::endl;
+	stream << "major: " << std::hex << (getFirmwareRevision() >> 8) << std::endl;
+	stream << "minor: " << std::hex << (getFirmwareRevision() & 0xFF) << std::endl;
+	stream << " Revision: " << std::to_string(getFirmwareRevision() >> 8) + "." + std::to_string(getFirmwareRevision() & 0xFF) << std::endl;
+	*/
 	stream << "Flash:" << std::endl;
 	stream << " Size(KiB): " << std::to_string(getFlashSize()) << std::endl;
 	stream << " Secure Mode: " << std::boolalpha << getSecureMode() << std::endl;
@@ -34,6 +41,21 @@ std::ostream& I210Common<T>::operator<< (std::ostream& stream) {
 template class I210Common<regmap::pci::MemMapped>;
 template class I210Common<regmap::pci::IOMapped>;
 template class I210Common<regmap::RegMapBase<regmap::RegBackendMemory>>;
+
+
+template <class T>
+uint16_t I210Common<T>::getFirmwareRevision() {
+
+	std::uint16_t FirmwarePointer4K = m_oBackend.template getBackend().template get<std::uint16_t>(0x20000 + 0x20);
+	//return FirmwarePointer4K >> 8;
+	std::uint32_t FirmwareOffset = (std::uint32_t)(((FirmwarePointer4K>>8))) * 4096;
+
+	//std::cout << "pointer: " << std::to_string(FirmwarePointer4K) << std::endl;
+	//std::cout << "offset: " << std::to_string(FirmwareOffset) << std::endl;
+	FirmwareOffset=0x2000;
+
+	return m_oBackend.template getBackend().template get<std::uint16_t>(0x20000 + FirmwareOffset + ((256 + 8) * sizeof(std::uint16_t)));
+}
 
 template <class T>
 uint32_t I210Common<T>::getFlashSize() {
@@ -85,59 +107,13 @@ uint32_t I210Common<T>::getFlashSpeed() {
 	return 15125;
 }
 
-//***************** IO Mapped specific implementation *****************
-uint32_t FlashIOMapped::getFlashSize() {
+template <class T>
+FlashDump I210Common<T>::dump() {
 
-	auto FLA = m_oBackend.template get<regmap::Register32_t>("FLA");
-
-	// Flash size = 64KB * 2 ^ FL_SIZE
-	return (1 << ((readOffset(FLA.getOffset()) & 0x000F0000) >> 17) << 6);
-}
-
-bool FlashIOMapped::getSecureMode() {
-
-	auto FLA = m_oBackend.template get<regmap::Register32_t>("FLA");
-	return readOffset(FLA.getOffset()) & FLA["SECURE_MODE"];
-}
-
-bool FlashIOMapped::getFlashDetected() {
-
-	auto EEC = m_oBackend.template get<regmap::Register32_t>("EEC");
-	return readOffset(EEC.getOffset()) & EEC["FLASH_DETECTED"];
-}
-
-bool FlashIOMapped::getFlashPresent() {
-
-	auto EEC = m_oBackend.template get<regmap::Register32_t>("EEC");
-	return readOffset(EEC.getOffset()) & EEC["FLASH_PRESENT"];
-}
-
-bool FlashIOMapped::getFlashInUse() {
-
-	auto EEC = m_oBackend.template get<regmap::Register32_t>("EEC");
-	return readOffset(EEC.getOffset()) & EEC["FLASH_IN_USE"];
-}
-
-uint32_t FlashIOMapped::getFlashSpeed() {
-
-	auto FLASHMODE = m_oBackend.template get<regmap::Register32_t>("FLASHMODE");
-
-	if (readOffset(FLASHMODE.getOffset()) & FLASHMODE["SPEED_31MHz"])
-		return 31250;
-	if (readOffset(FLASHMODE.getOffset()) & FLASHMODE["SPEED_62MHz"])
-		return 62500;
-
-	return 15125;
-}
-//*********************************************************************
-
-
-FlashDump FlashMemMapped::dump() {
-
-	FlashDump buf(m_oMemMap.defFile(), 1048576);
-	auto FLSWCNT = m_oMemMap.get<regmap::Register32_t>("FLSWCNT");
-	auto FLSWCTL = m_oMemMap.get<regmap::Register32_t>("FLSWCTL");
-	auto FLSWDATA = m_oMemMap.get<regmap::Register32_t>("FLSWDATA");
+	FlashDump buf(m_oBackend.template defFile(), 1048576);
+	auto FLSWCNT = m_oBackend.template get<regmap::Register32_t>("FLSWCNT");
+	auto FLSWCTL = m_oBackend.template get<regmap::Register32_t>("FLSWCTL");
+	auto FLSWDATA = m_oBackend.template get<regmap::Register32_t>("FLSWDATA");
 
 	for (std::uint32_t i = 0; i < buf.size(); i += 4) {
 
@@ -156,49 +132,6 @@ FlashDump FlashMemMapped::dump() {
 	}
 
 	return buf;
-}
-
-FlashDump FlashIOMapped::dump() {
-
-	FlashDump buf(m_oIOMap.defFile(), 1048576);
-	const std::uint32_t FLSWCNT = m_oIOMap.get<regmap::Register32_t>("FLSWCNT").getOffset();
-	const std::uint32_t FLSWCTL = m_oIOMap.get<regmap::Register32_t>("FLSWCTL").getOffset();
-	const std::uint32_t FLSWDATA = m_oIOMap.get<regmap::Register32_t>("FLSWDATA").getOffset();
-	const std::uint32_t FLSWCTL_DONE = m_oIOMap.get<regmap::Register32_t>("FLSWCTL")["DONE_MASK"];
-
-	for (std::uint32_t i = 0; i < buf.size(); i += 4) {
-
-		// we're going to read 4 data bytes
-		writeOffset(FLSWCNT, 0x4);
-
-		// at flash address...
-		writeOffset(FLSWCTL, 0x00000000 | i);
-
-		// wait until the data is available in FLSWDATA
-		std::uint32_t val;
-		do {
-			val = readOffset(FLSWCTL);
-		} while (FLSWCTL_DONE != (val & FLSWCTL_DONE));
-
-		// read the 4 bytes and store them
-		val = readOffset(FLSWDATA);
-		memcpy(static_cast<char*>(buf.data()) + i, &val, sizeof(val));
-	}
-
-	return buf;
-}
-
-
-void FlashIOMapped::writeOffset(std::uint32_t offset, std::uint32_t value) {
-
-	m_oIOADDR = offset;
-	m_oIODATA = value;
-}
-
-std::uint32_t FlashIOMapped::readOffset(std::uint32_t offset) {
-	
-	m_oIOADDR = offset;
-	return m_oIODATA;
 }
 
 };

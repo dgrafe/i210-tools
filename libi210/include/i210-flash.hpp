@@ -19,6 +19,8 @@
 
 namespace libi210 {
 
+class FlashDump;
+
 template <class T>
 class I210Common {
 
@@ -27,41 +29,37 @@ public:
 	I210Common(T& backend)
 	: m_oBackend(backend){}
 
+	// flash
 	virtual uint32_t getFlashSize();
 	virtual bool getSecureMode();
 	virtual bool getFlashDetected();
 	virtual bool getFlashPresent();
 	virtual bool getFlashInUse();
 	virtual uint32_t getFlashSpeed();
+	virtual FlashDump dump();
+
+	// firmware
+	virtual uint16_t getFirmwareRevision();
 
 	std::ostream& operator<< (std::ostream& stream);
 protected:
 	T&	m_oBackend;
 };
 
-class FlashDump;
 class FlashIOMapped : public I210Common<regmap::pci::IOMapped> {
 
 public:
 	FlashIOMapped(regmap::pci::IOMapped& IOMap)
 	: I210Common(IOMap), m_oIOMap(IOMap),
 	  m_oIOADDR(m_oIOMap.get<regmap::Register32_t>("IOADDR")),
-	  m_oIODATA(m_oIOMap.get<regmap::Register32_t>("IODATA")) {}
+	  m_oIODATA(m_oIOMap.get<regmap::Register32_t>("IODATA")) {
 
-	FlashDump dump();
+		m_oIOMap.getBackend().setIndirection(m_oIOADDR.getOffset(), m_oIODATA.getOffset());
+	  }
+
 	void write(const FlashDump& dump);
 
-	virtual uint32_t getFlashSize();
-	virtual bool getSecureMode();
-	virtual bool getFlashDetected();
-	virtual bool getFlashPresent();
-	virtual bool getFlashInUse();
-	virtual uint32_t getFlashSpeed();
-
 private:
-	void writeOffset(std::uint32_t offset, std::uint32_t value);
-	std::uint32_t readOffset(std::uint32_t offset);
-
 	regmap::pci::IOMapped&	m_oIOMap;
 	regmap::Register32_t	m_oIOADDR;
 	regmap::Register32_t	m_oIODATA;
@@ -73,7 +71,6 @@ public:
 	FlashMemMapped(regmap::pci::MemMapped& MemMap)
 	: I210Common(MemMap), m_oMemMap(MemMap) {}
 
-	FlashDump dump();
 	void write(const FlashDump& dump);
 
 private:
